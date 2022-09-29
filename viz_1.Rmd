@@ -6,4 +6,192 @@ output: github_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+library(tidyverse)
+library(ggridges)
 ```
+
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728", "USC00519397", "USS0023B17S"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(
+      id, 
+      USW00094728 = "CentralPark_NY", 
+      USC00519397 = "Waikiki_HA",
+      USS0023B17S = "Waterhole_WA"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+
+```
+
+
+```{r}
+ggplot(weather_df, aes(x = tmin, y = tmax))
+```
+
+
+
+```{r}
+weather_df %>% 
+  drop_na() %>% 
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_point()
+```
+
+let make the same plot but different 
+
+```{r}
+weather_scatterplot = 
+  weather_df %>% 
+  drop_na() %>% 
+  ggplot(aes(x = tmin, y = tmax)) 
+
+#You can also save the output of ggplot() to an object and modify / print it later. This is often helpful, although it’s not my default approach to making plots.
+
+weather_scatterplot +
+  geom_point()
+```
+
+Get more fancy 
+
+```{r}
+weather_df %>% 
+  ggplot(aes(x = tmin, y = tmax, color = name)) + 
+  geom_point()
+
+#OR you can stack, here only aes of color applies to the points 
+
+weather_df %>% 
+  ggplot(aes(x = tmin, y = tmax,)) + 
+  geom_point(aes(color = name)) +
+  geom_smooth()
+
+# but here the color applies to all geometires being stacked onto plots & you get smooth lines for all names 
+
+weather_df %>% 
+  ggplot(aes(x = tmin, y = tmax, color = name)) + 
+  geom_point() +
+  geom_smooth()
+
+# alpha changes color density and se FALSE gets rid of the error bars 
+weather_df %>% 
+  ggplot(aes(x = tmin, y = tmax,)) + 
+  geom_point(aes(color = name), alpha = .5) +
+  geom_smooth(se = FALSE)
+```
+
+Make separate panels for each variable through facet wrap 
+
+```{r}
+weather_df %>% 
+  ggplot(aes(x = tmin, y = tmax,)) + 
+  geom_point(aes(color = name), alpha = .5) +
+  geom_smooth(se = FALSE)  + 
+  facet_grid(name ~ .) #the "~ ." orients the plots into propper position 
+```
+
+comparing new variables, seasonal trend 
+
+```{r}
+weather_df %>% 
+  ggplot(aes(x = date, y = tmax, color = name)) + 
+  geom_point(aes(size = prcp), alpha = .5) +
+  geom_smooth(se = FALSE) + 
+    facet_grid(. ~ name)
+```
+
+#Some quick stuff, C to F conversion 
+
+```{r}
+weather_df %>% 
+  filter(name == "CentralPark_NY") %>% 
+  mutate(
+    tmax_fahr = tmax * (9 / 5) + 32,
+    tmin_fahr = tmin * (9 / 5) + 32) %>% 
+  ggplot(aes(x = tmin_fahr, y = tmax_fahr)) +
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+#change shape of point for better visualization, In these cases geom_hex(), geom_bin2d(), or geom_density2d() can be handy:
+
+```{r}
+ggplot(weather_df, aes(x = tmax, y = tmin)) + 
+  geom_hex()
+```
+
+# Univariate PLots ... histograms, barplots, boxplots, violin 
+
+```{r}
+weather_df %>% 
+  ggplot(aes(x = tmax)) +
+  geom_histogram()
+
+#color is hard to see in historgram so the aes used is "fill"
+
+weather_df %>% 
+  ggplot(aes(x = tmax, fill = name)) +
+  geom_histogram()
+```
+
+More options: Density Plot 
+
+```{r}
+weather_df %>% 
+  ggplot(aes(x = tmax, fill = name)) +
+  geom_density(alpha = .4, adjust = .5, color = "blue")
+```
+
+More options: Box Plot 
+
+```{r}
+weather_df %>% 
+  ggplot(aes(y = tmax, x = name, fill = name)) +
+  geom_boxplot()
+```
+
+More options: Violin Plot, they can be helpful for distribution of many 20+ variables 
+
+```{r}
+weather_df %>% 
+  ggplot(aes(y = tmax, x = name)) +
+  geom_violin(aes(fill = name), alpha = .5) + 
+  stat_summary(fun = "median", color = "blue")
+```
+
+More options: Ridge Plot, they can be helpful for distribution of many 20+ variables 
+
+```{r}
+weather_df %>% 
+  ggplot(aes(x = tmax, y = name)) + 
+  geom_density_ridges(scale = .85)
+```
+
+##saving an embeding plots 
+
+```{r}
+weather_scatterplot = 
+  weather_df %>% 
+  ggplot(aes(x = date, y = tmax, color = name)) + 
+  geom_point(aes(size = prcp), alpha = .5) + 
+  geom_smooth( se = FALSE) + 
+  facet_grid( . ~ name)
+
+ggsave(
+  file = "weather_scatterplot.pdf", 
+  plot = weather_scatterplot, 
+  width = 8, height = 5
+)
+```
+
+#you can keep making the figure larger but font will stay same 
+
+```{r fig.width=10}
+weather_scatterplot
+```
+
